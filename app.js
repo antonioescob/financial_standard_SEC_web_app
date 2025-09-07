@@ -197,33 +197,10 @@ app.get('/', (req, res) => {
                 function displayFinancialData(data) {
                     const results = document.getElementById('results');
                     
-                    if (!data || !data.data || data.data.length === 0) {
+                    if (!data || (!data.val_filtered_data && !data.statement_data && !data.dataset_standard_data)) {
                         results.innerHTML = '<div style="text-align: center; color: #666; padding: 40px;">No financial data available for the selected period.</div>';
                         return;
                     }
-
-                    // Group data by categories for better presentation
-                    const categorizedData = {};
-                    data.data.forEach(item => {
-                        if (!item.tag_name) return;
-                        
-                        // Categorize based on common financial statement tags
-                        let category = 'Other';
-                        const tag = item.tag_name.toLowerCase();
-                        
-                        if (tag.includes('revenue') || tag.includes('income') || tag.includes('earnings') || tag.includes('profit')) {
-                            category = 'Income Statement';
-                        } else if (tag.includes('asset') || tag.includes('liabilit') || tag.includes('equity') || tag.includes('stockholders')) {
-                            category = 'Balance Sheet';
-                        } else if (tag.includes('cash') || tag.includes('flow') || tag.includes('operating') || tag.includes('investing') || tag.includes('financing')) {
-                            category = 'Cash Flow';
-                        } else if (tag.includes('share') || tag.includes('stock') || tag.includes('outstanding') || tag.includes('eps') || tag.includes('earnings')) {
-                            category = 'Share Information';
-                        }
-                        
-                        if (!categorizedData[category]) categorizedData[category] = [];
-                        categorizedData[category].push(item);
-                    });
 
                     const html = \`
                         <div style="margin-bottom: 30px;">
@@ -232,84 +209,135 @@ app.get('/', (req, res) => {
                                 <p style="margin: 10px 0 0 0; opacity: 0.9;">CIK: \${String(data.company.cik).padStart(10, '0')} | Period: \${data.period} \${data.year}</p>
                             </div>
                         </div>
-                        
-                        \${Object.keys(categorizedData).map(category => \`
-                            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); margin-bottom: 20px; overflow: hidden;">
-                                <div style="background: #f8f9fa; padding: 15px; border-bottom: 1px solid #e9ecef;">
-                                    <h3 style="margin: 0; color: #333;">📋 \${category}</h3>
+
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 30px;">
+                            <!-- Val Filtered Column -->
+                            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+                                <div style="background: #e3f2fd; padding: 15px; border-bottom: 1px solid #90caf9;">
+                                    <h3 style="margin: 0; color: #1565c0;">📊 Val Filtered Data</h3>
+                                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #1976d2;">Raw data from val_filtered table</p>
                                 </div>
-                                <div style="overflow-x: auto;">
+                                <div style="max-height: 600px; overflow-y: auto;">
                                     <table style="width: 100%; border-collapse: collapse;">
-                                        <thead>
-                                            <tr style="background: #f8f9fa;">
-                                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #e9ecef; font-weight: 600; min-width: 250px;">Tag Name</th>
-                                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e9ecef; font-weight: 600; min-width: 120px;">Val Filtered</th>
-                                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e9ecef; font-weight: 600; min-width: 120px;">Statement Data</th>
-                                                <th style="padding: 12px; text-align: right; border-bottom: 1px solid #e9ecef; font-weight: 600; min-width: 120px;">Dataset Standard</th>
+                                        <thead style="position: sticky; top: 0; background: #f5f5f5; z-index: 1;">
+                                            <tr>
+                                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Tag</th>
+                                                <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Value</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            \${categorizedData[category].map(item => \`
-                                                <tr style="border-bottom: 1px solid #f1f3f4;">
-                                                    <td style="padding: 12px; color: #333; font-weight: 500;">
-                                                        <div style="font-weight: 600; margin-bottom: 4px;">\${item.tag_name}</div>
-                                                        \${item.label && item.label !== item.tag_name ? \`<div style="font-size: 12px; color: #666; font-weight: normal;">\${item.label}</div>\` : ''}
-                                                        \${item.unit ? \`<div style="font-size: 11px; color: #999; margin-top: 2px;">Unit: \${item.unit}</div>\` : ''}
+                                            \${(data.val_filtered_data || []).map(item => \`
+                                                <tr style="border-bottom: 1px solid #f0f0f0;">
+                                                    <td style="padding: 8px; font-size: 11px;">
+                                                        <div style="font-weight: 600; margin-bottom: 2px;">\${item.tag_name}</div>
+                                                        \${item.label && item.label !== item.tag_name ? \`<div style="font-size: 10px; color: #666;">\${item.label}</div>\` : ''}
+                                                        \${item.unit ? \`<div style="font-size: 9px; color: #999;">Unit: \${item.unit}</div>\` : ''}
                                                     </td>
-                                                    <td style="padding: 12px; text-align: right; font-family: monospace; color: #0066cc;">
-                                                        \${formatNumber(item.val_filtered)}
-                                                    </td>
-                                                    <td style="padding: 12px; text-align: right; font-family: monospace; color: #cc6600;">
-                                                        \${formatStatementData(item.statement_data)}
-                                                    </td>
-                                                    <td style="padding: 12px; text-align: right; font-family: monospace; font-weight: 600; color: #006600;">
-                                                        \${formatNumber(item.dataset_standard)}
+                                                    <td style="padding: 8px; text-align: right; font-family: monospace; font-size: 11px; color: #1565c0;">
+                                                        \${formatNumber(item.value)}
                                                     </td>
                                                 </tr>
                                             \`).join('')}
                                         </tbody>
                                     </table>
+                                    \${!data.val_filtered_data || data.val_filtered_data.length === 0 ? '<div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">No data available</div>' : ''}
                                 </div>
                             </div>
-                        \`).join('')}
-                        
-                        <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 8px;">
-                            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 10px;">
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 12px; height: 12px; background: #0066cc; border-radius: 2px;"></div>
-                                    <span style="font-size: 14px; color: #666;">Val Filtered (Raw Data)</span>
+
+                            <!-- Statement Data Column -->
+                            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+                                <div style="background: #fff3e0; padding: 15px; border-bottom: 1px solid #ffb74d;">
+                                    <h3 style="margin: 0; color: #e65100;">📋 Statement Data</h3>
+                                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #f57c00;">Filtered data from statement_* tables</p>
                                 </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 12px; height: 12px; background: #cc6600; border-radius: 2px;"></div>
-                                    <span style="font-size: 14px; color: #666;">Statement Data (Filtered)</span>
-                                </div>
-                                <div style="display: flex; align-items: center; gap: 8px;">
-                                    <div style="width: 12px; height: 12px; background: #006600; border-radius: 2px;"></div>
-                                    <span style="font-size: 14px; color: #666;">Dataset Standard (Calculated)</span>
+                                <div style="max-height: 600px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <thead style="position: sticky; top: 0; background: #f5f5f5; z-index: 1;">
+                                            <tr>
+                                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Tag</th>
+                                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Table</th>
+                                                <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            \${(data.statement_data || []).map(item => \`
+                                                <tr style="border-bottom: 1px solid #f0f0f0;">
+                                                    <td style="padding: 8px; font-size: 11px; font-weight: 600;">
+                                                        \${item.tag_name}
+                                                    </td>
+                                                    <td style="padding: 8px; font-size: 10px; color: #666;">
+                                                        \${item.statement_table.replace('statement_', '')}
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: right; font-family: monospace; font-size: 11px; color: #e65100;">
+                                                        \${formatNumber(item.value)}
+                                                    </td>
+                                                </tr>
+                                            \`).join('')}
+                                        </tbody>
+                                    </table>
+                                    \${!data.statement_data || data.statement_data.length === 0 ? '<div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">No data available</div>' : ''}
                                 </div>
                             </div>
-                            <p style="color: #666; margin: 0; font-size: 14px;">
-                                📊 Showing \${data.data.length} financial metrics across 3 data sources
-                            </p>
+
+                            <!-- Dataset Standard Column -->
+                            <div style="background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); overflow: hidden;">
+                                <div style="background: #e8f5e8; padding: 15px; border-bottom: 1px solid #81c784;">
+                                    <h3 style="margin: 0; color: #2e7d32;">💎 Dataset Standard</h3>
+                                    <p style="margin: 5px 0 0 0; font-size: 12px; color: #388e3c;">Calculated data from dataset_standard_statements</p>
+                                </div>
+                                <div style="max-height: 600px; overflow-y: auto;">
+                                    <table style="width: 100%; border-collapse: collapse;">
+                                        <thead style="position: sticky; top: 0; background: #f5f5f5; z-index: 1;">
+                                            <tr>
+                                                <th style="padding: 8px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Field</th>
+                                                <th style="padding: 8px; text-align: right; border-bottom: 1px solid #e0e0e0; font-size: 12px; font-weight: 600;">Value</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            \${(data.dataset_standard_data || []).map(item => \`
+                                                <tr style="border-bottom: 1px solid #f0f0f0;">
+                                                    <td style="padding: 8px; font-size: 11px;">
+                                                        <div style="font-weight: 600; margin-bottom: 2px;">\${item.tag_name}</div>
+                                                        <div style="font-size: 9px; color: #666;">\${item.field_name}</div>
+                                                    </td>
+                                                    <td style="padding: 8px; text-align: right; font-family: monospace; font-size: 11px; color: #2e7d32;">
+                                                        \${formatNumber(item.value)}
+                                                    </td>
+                                                </tr>
+                                            \`).join('')}
+                                        </tbody>
+                                    </table>
+                                    \${!data.dataset_standard_data || data.dataset_standard_data.length === 0 ? '<div style="padding: 20px; text-align: center; color: #999; font-size: 12px;">No data available</div>' : ''}
+                                </div>
+                            </div>
                         </div>
+                        
+                        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 8px;">
+                            <div style="display: flex; justify-content: center; gap: 30px; flex-wrap: wrap; margin-bottom: 10px;">
+                                <div>
+                                    <strong>Val Filtered:</strong> \${data.val_filtered_data ? data.val_filtered_data.length : 0} items
+                                </div>
+                                <div>
+                                    <strong>Statement Data:</strong> \${data.statement_data ? data.statement_data.length : 0} items
+                                </div>
+                                <div>
+                                    <strong>Dataset Standard:</strong> \${data.dataset_standard_data ? data.dataset_standard_data.length : 0} items
+                                </div>
+                            </div>
+                        </div>
+
+                        <style>
+                            @media (max-width: 768px) {
+                                .results > div:first-child + div {
+                                    grid-template-columns: 1fr !important;
+                                }
+                            }
+                        </style>
                     \`;
                     
                     results.innerHTML = html;
                 }
                 
-                function formatStatementData(statementData) {
-                    if (!statementData || Object.keys(statementData).length === 0) {
-                        return 'N/A';
-                    }
-                    
-                    // Show data from different statement tables
-                    const values = Object.entries(statementData)
-                        .filter(([key, value]) => value !== null && value !== undefined)
-                        .map(([key, value]) => \`\${key.replace('statement_', '')}: \${formatNumber(value)}\`)
-                        .join('<br>');
-                    
-                    return values || 'N/A';
-                }
                 
                 function formatTagName(tag) {
                     if (!tag) return 'N/A';
@@ -503,27 +531,50 @@ app.get('/api/financial-data/:id', async (req, res) => {
 
         const datasetData = datasetRows[0] || {};
 
-        // Combine all data sources
-        const allTags = new Set([
-            ...Object.keys(valFilteredMap),
-            ...Object.keys(statementData)
-        ]);
-
-        const combinedData = Array.from(allTags).map(tagName => ({
-            tag_name: tagName,
-            label: valFilteredMap[tagName]?.label || tagName,
-            description: valFilteredMap[tagName]?.description,
-            unit: valFilteredMap[tagName]?.unit,
-            val_filtered: valFilteredMap[tagName]?.value,
-            statement_data: statementData[tagName] || {},
-            dataset_standard: getDatasetValueForTag(tagName, datasetData)
+        // Prepare data for each source separately
+        const valFilteredData = valFilteredRows.map(row => ({
+            tag_name: row.tag_name,
+            label: row.label,
+            description: row.description,
+            unit: row.unit,
+            value: row.val_filtered
         }));
+
+        // Convert statement data to array format
+        const statementDataArray = [];
+        Object.entries(statementData).forEach(([tagName, statements]) => {
+            Object.entries(statements).forEach(([statementTable, value]) => {
+                statementDataArray.push({
+                    tag_name: tagName,
+                    statement_table: statementTable,
+                    value: value
+                });
+            });
+        });
+
+        // Convert dataset_standard_statements to array format
+        const datasetStandardArray = [];
+        if (datasetData) {
+            // Get all non-null fields from dataset_standard_statements
+            Object.entries(datasetData).forEach(([fieldName, value]) => {
+                if (value !== null && value !== undefined && 
+                    !['cik', 'fk_id_company', 'company_name', 'fy', 'fp', 'sic_sector', 'sic_industry', 'sic_sub_sector', 'sic_sub_industriy'].includes(fieldName)) {
+                    datasetStandardArray.push({
+                        field_name: fieldName,
+                        tag_name: formatFieldNameToTag(fieldName),
+                        value: value
+                    });
+                }
+            });
+        }
 
         res.json({
             company: companyRows[0],
             year: year,
             period: period,
-            data: combinedData
+            val_filtered_data: valFilteredData,
+            statement_data: statementDataArray,
+            dataset_standard_data: datasetStandardArray
         });
     } catch (error) {
         console.error('Error getting financial data:', error);
@@ -531,41 +582,13 @@ app.get('/api/financial-data/:id', async (req, res) => {
     }
 });
 
-// Helper function to map tag names to dataset_standard_statements fields
-function getDatasetValueForTag(tagName, datasetData) {
-    // Map common tag names to dataset fields
-    const tagMapping = {
-        'Revenues': 'revenues',
-        'CostOfRevenue': 'cost_of_revenue',
-        'GrossProfit': 'gross_profit',
-        'OperatingExpenses': 'operating_expenses',
-        'OperatingIncomeLoss': 'operating_incomeLoss_EBITDA',
-        'NetIncomeLoss': 'net_profit',
-        'Assets': 'assets',
-        'AssetsCurrent': 'assets_current',
-        'AssetsNoncurrent': 'assets_noncurrent',
-        'Liabilities': 'liabilities',
-        'LiabilitiesCurrent': 'liabilities_current',
-        'LiabilitiesNoncurrent': 'liabilities_noncurrent',
-        'StockholdersEquity': 'stockholders_equity',
-        'CashAndCashEquivalentsAtCarryingValue': 'cash_cash_equivalents_and_short_term_investments',
-        'PropertyPlantAndEquipmentNet': 'property_plant_and_equipment_net',
-        'AccountsPayableCurrent': 'accounts_payable',
-        'InventoryNet': 'inventory',
-        'EarningsPerShareBasic': 'earnings_per_share_basic',
-        'EarningsPerShareDiluted': 'earnings_per_share_diluted',
-        'WeightedAverageNumberOfSharesOutstandingBasic': 'weighted_average_number_of_shares_outstanding_basic',
-        'NetCashProvidedByUsedInOperatingActivities': 'net_cash_operating_activities',
-        'NetCashProvidedByUsedInInvestingActivities': 'net_cash_investing_activities',
-        'NetCashProvidedByUsedInFinancingActivities': 'net_cash_financing_activities'
-    };
-    
-    const fieldName = tagMapping[tagName];
-    if (fieldName && datasetData[fieldName] !== undefined) {
-        return datasetData[fieldName];
-    }
-    
-    return null;
+// Helper function to format field names to readable tag names
+function formatFieldNameToTag(fieldName) {
+    return fieldName
+        .replace(/_/g, ' ')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/^./, str => str.toUpperCase())
+        .trim();
 }
 
 app.get('/test-db', async (req, res) => {
